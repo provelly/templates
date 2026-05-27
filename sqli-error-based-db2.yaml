@@ -1,0 +1,36 @@
+id: sqli-error-based-db2
+
+info:
+  name: IBM DB2 Error-Based SQL Injection
+  author: security-researcher
+  severity: critical
+  description: |
+    IBM DB2 데이터베이스에서 에러 기반 SQL 인젝션 취약점을 탐지합니다.
+    주로 엔터프라이즈 및 금융 시스템에서 사용됩니다.
+  tags: sqli,db2,ibm,error-based,injection
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}?id=1'"
+      - "{{BaseURL}}?id=1 AND 1=1"
+      - "{{BaseURL}}?id=1 OR 1=1"
+      - "{{BaseURL}}?id=1 UNION SELECT NULL FROM SYSIBM.SYSDUMMY1--"
+      - "{{BaseURL}}?id=1 UNION SELECT NULL,NULL FROM SYSIBM.SYSDUMMY1--"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "DB2 SQL error"
+          - "SQLCODE"
+          - "SQLSTATE"
+          - "com\\.ibm\\.db2"
+          - "CLI Driver.*DB2"
+          - "DB2 Universal Database"
+          - "\\[IBM\\]\\[CLI Driver\\]"
+          - "\\[DB2/6000\\]"
+          - "\\[DB2/NT\\]"
+        condition: or
+        case-insensitive: true

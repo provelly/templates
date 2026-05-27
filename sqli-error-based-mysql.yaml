@@ -1,0 +1,56 @@
+id: sqli-error-based-mysql
+
+info:
+  name: MySQL Error-Based SQL Injection
+  author: security-researcher
+  severity: critical
+  description: |
+    MySQL 데이터베이스에서 에러 기반 SQL 인젝션 취약점을 탐지합니다.
+    에러 메시지를 통해 데이터베이스 정보가 노출될 수 있습니다.
+  tags: sqli,mysql,error-based,injection
+  remediation: |
+    - Prepared Statement / Parameterized Query 사용
+    - 입력값 화이트리스트 검증
+    - 에러 메시지 외부 노출 차단
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}?id=1'"
+      - "{{BaseURL}}?id=1%27"
+      - "{{BaseURL}}?id=1`"
+      - "{{BaseURL}}?page=1'"
+      - "{{BaseURL}}?cat=1'"
+      - "{{BaseURL}}?product=1'"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "you have an error in your sql syntax"
+          - "warning: mysql"
+          - "mysql_fetch"
+          - "mysql_num_rows"
+          - "supplied argument is not a valid MySQL"
+          - "Column count doesn't match value count"
+          - "mysql_query\\(\\)"
+        condition: or
+        case-insensitive: true
+
+      - type: regex
+        part: body
+        regex:
+          - "ERROR 1064.*You have an error in your SQL"
+          - "ERROR 1054.*Unknown column"
+          - "ERROR 1146.*Table.*doesn't exist"
+        condition: or
+        case-insensitive: true
+
+    extractors:
+      - type: regex
+        part: body
+        name: db-error
+        regex:
+          - "ERROR \\d+.*"
+          - "mysql_.*error.*"

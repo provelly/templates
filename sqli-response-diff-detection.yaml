@@ -1,0 +1,59 @@
+id: sqli-response-diff-detection
+
+info:
+  name: SQL Injection Detection via Response Differential Analysis
+  author: security-researcher
+  severity: medium
+  description: |
+    참(True)/거짓(False) 페이로드의 응답 차이를 분석하여 블라인드 SQL 인젝션을 탐지합니다.
+    에러 메시지 없이도 응답 길이, 내용, 상태 코드의 차이로 취약점을 확인합니다.
+  tags: sqli,differential,blind,injection,response-analysis
+
+http:
+  # 테스트 쌍 1: AND 1=1 (True) vs AND 1=2 (False)
+  - method: GET
+    path:
+      - "{{BaseURL}}?id=1 AND 1=1--"
+      - "{{BaseURL}}?id=1 AND 1=2--"
+      - "{{BaseURL}}?id=1 AND 2>1--"
+      - "{{BaseURL}}?id=1 AND 2<1--"
+
+    matchers:
+      - type: dsl
+        dsl:
+          - "len(body_1) != len(body_2)"
+          - "(status_code_1 == 200 && status_code_2 != 200) || (status_code_1 != status_code_2)"
+        condition: or
+
+  # 테스트 쌍 2: 문자열 따옴표 기반
+  - method: GET
+    path:
+      - "{{BaseURL}}?name=test' AND '1'='1"
+      - "{{BaseURL}}?name=test' AND '1'='2"
+
+    matchers:
+      - type: dsl
+        dsl:
+          - "len(body_1) != len(body_2)"
+
+  # 테스트 쌍 3: IF 조건 기반
+  - method: GET
+    path:
+      - "{{BaseURL}}?id=IF(1=1,1,0)"
+      - "{{BaseURL}}?id=IF(1=2,1,0)"
+
+    matchers:
+      - type: dsl
+        dsl:
+          - "len(body_1) != len(body_2)"
+
+  # 테스트 쌍 4: CASE WHEN 기반
+  - method: GET
+    path:
+      - "{{BaseURL}}?id=CASE WHEN 1=1 THEN 1 ELSE 2 END"
+      - "{{BaseURL}}?id=CASE WHEN 1=2 THEN 1 ELSE 2 END"
+
+    matchers:
+      - type: dsl
+        dsl:
+          - "len(body_1) != len(body_2)"

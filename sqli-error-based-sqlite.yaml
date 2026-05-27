@@ -1,0 +1,35 @@
+id: sqli-error-based-sqlite
+
+info:
+  name: SQLite Error-Based SQL Injection
+  author: security-researcher
+  severity: high
+  description: |
+    SQLite 데이터베이스에서 에러 기반 SQL 인젝션 취약점을 탐지합니다.
+    소규모 웹 앱, 모바일 백엔드, 임베디드 시스템에서 자주 사용됩니다.
+  tags: sqli,sqlite,error-based,injection
+  remediation: |
+    - sqlite3_prepare_v2() 등 Prepared Statement API 사용
+    - 입력값 유형 검증 및 필터링
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}?id=1'"
+      - "{{BaseURL}}?id=1 AND 1=1"
+      - "{{BaseURL}}?id=1 AND load_extension(0x61)"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "SQLite.*error"
+          - "Warning.*sqlite_"
+          - "unrecognized token"
+          - "near.*syntax error"
+          - "sqlite3.*Exception"
+          - "\\[SQLITE_ERROR\\]"
+          - "SQLiteException"
+        condition: or
+        case-insensitive: true

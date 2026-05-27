@@ -1,0 +1,37 @@
+id: sqli-error-based-sybase
+
+info:
+  name: Sybase/SAP ASE SQL Injection
+  author: security-researcher
+  severity: critical
+  description: |
+    Sybase 및 SAP Adaptive Server Enterprise(ASE) 데이터베이스에서
+    SQL 인젝션 취약점을 탐지합니다. 금융, ERP 시스템에서 자주 사용됩니다.
+  tags: sqli,sybase,sap-ase,error-based,injection
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}?id=1'"
+      - "{{BaseURL}}?id=1' OR 1=1--"
+      - "{{BaseURL}}?id=1 AND 1=1"
+      - "{{BaseURL}}?id=1 UNION SELECT NULL--"
+      - "{{BaseURL}}?id=1; WAITFOR DELAY '00:00:05'--"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "Sybase.*error"
+          - "com\\.sybase\\."
+          - "Adaptive Server"
+          - "net\\.sourceforge\\.jtds"
+          - "Sybase SQL Server"
+          - "jConnect"
+        condition: or
+        case-insensitive: true
+
+      - type: dsl
+        dsl:
+          - "duration >= 5000"

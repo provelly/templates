@@ -1,0 +1,37 @@
+id: sqli-boolean-blind
+
+info:
+  name: Boolean-Based Blind SQL Injection
+  author: security-researcher
+  severity: high
+  description: |
+    불리언 기반 블라인드 SQL 인젝션 취약점을 탐지합니다.
+    참(True)/거짓(False) 조건에 따른 응답 차이를 분석합니다.
+  tags: sqli,blind,boolean,injection
+  remediation: |
+    - Parameterized Query 사용
+    - 입력값 타입 검증 (정수형은 intval() 처리)
+    - WAF(웹 방화벽) 적용
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}?id=1 AND 1=1"
+      - "{{BaseURL}}?id=1 AND 1=2"
+
+    matchers:
+      - type: dsl
+        dsl:
+          - "len(body_1) != len(body_2)"
+          - "status_code_1 == 200 && status_code_2 == 200"
+        condition: and
+
+  - method: GET
+    path:
+      - "{{BaseURL}}?id=1' AND '1'='1"
+      - "{{BaseURL}}?id=1' AND '1'='2"
+
+    matchers:
+      - type: dsl
+        dsl:
+          - "len(body_1) != len(body_2)"

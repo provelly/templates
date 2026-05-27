@@ -1,0 +1,66 @@
+id: sqli-multipart-form
+
+info:
+  name: SQL Injection via Multipart Form Data (File Upload)
+  author: security-researcher
+  severity: high
+  description: |
+    multipart/form-data 방식의 파일 업로드 파라미터를 통한 SQL 인젝션을 탐지합니다.
+    파일명, 메타데이터 파라미터 등에서 발생할 수 있습니다.
+  tags: sqli,multipart,file-upload,injection
+
+http:
+  - method: POST
+    path:
+      - "{{BaseURL}}/upload"
+      - "{{BaseURL}}/file/upload"
+      - "{{BaseURL}}/api/upload"
+      - "{{BaseURL}}/media/upload"
+
+    headers:
+      Content-Type: "multipart/form-data; boundary=----WebKitFormBoundary"
+
+    body: |
+      ------WebKitFormBoundary
+      Content-Disposition: form-data; name="file"; filename="test'.jpg"
+      Content-Type: image/jpeg
+
+      (binary)
+      ------WebKitFormBoundary
+      Content-Disposition: form-data; name="description"
+
+      test' OR '1'='1
+      ------WebKitFormBoundary--
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "you have an error in your sql syntax"
+          - "warning: mysql"
+          - "ORA-\\d{5}"
+          - "Microsoft OLE DB"
+          - "sql.*error|syntax.*error"
+        condition: or
+        case-insensitive: true
+
+  - method: POST
+    path:
+      - "{{BaseURL}}/upload"
+      - "{{BaseURL}}/media"
+
+    headers:
+      Content-Type: "multipart/form-data; boundary=----WebKitFormBoundary"
+
+    body: |
+      ------WebKitFormBoundary
+      Content-Disposition: form-data; name="category"
+
+      1' AND SLEEP(5)--
+      ------WebKitFormBoundary--
+
+    matchers:
+      - type: dsl
+        dsl:
+          - "duration >= 5000"

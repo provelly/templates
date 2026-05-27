@@ -1,0 +1,38 @@
+id: sqli-error-based-postgresql
+
+info:
+  name: PostgreSQL Error-Based SQL Injection
+  author: security-researcher
+  severity: critical
+  description: |
+    PostgreSQL 데이터베이스에서 에러 기반 SQL 인젝션 취약점을 탐지합니다.
+  tags: sqli,postgresql,error-based,injection
+  remediation: |
+    - pg_query_params() 또는 PDO Prepared Statement 사용
+    - pg_escape_string() 함수 사용 (Prepared Statement 선호)
+    - 에러 레벨 설정 조정 (log_min_error_statement)
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}?id=1'"
+      - "{{BaseURL}}?id=1 AND 1=CAST((SELECT version()) AS int)--"
+      - "{{BaseURL}}?id=1' OR '1'='1"
+      - "{{BaseURL}}?id=1;SELECT pg_sleep(0)--"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "PostgreSQL.*ERROR"
+          - "Warning.*pg_"
+          - "valid PostgreSQL result"
+          - "Npgsql\\."
+          - "PSQLException"
+          - "ERROR:.*syntax error at or near"
+          - "ERROR:.*unterminated quoted string"
+          - "ERROR:.*invalid input syntax"
+          - "pg_query\\(\\)"
+        condition: or
+        case-insensitive: true

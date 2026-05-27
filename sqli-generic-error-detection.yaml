@@ -1,0 +1,70 @@
+id: sqli-generic-error-detection
+
+info:
+  name: Generic SQL Injection Error Detection (All Databases)
+  author: security-researcher
+  severity: medium
+  description: |
+    데이터베이스 종류에 무관하게 공통적인 SQL 인젝션 에러 메시지를 탐지합니다.
+    빠른 스캔과 대규모 타겟 조사에 적합합니다.
+  tags: sqli,generic,error-detection,injection
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}?id=1'"
+      - "{{BaseURL}}?id=1%27"
+      - "{{BaseURL}}?id=1\""
+      - "{{BaseURL}}?id=1`"
+      - "{{BaseURL}}?id=1\\'"
+      - "{{BaseURL}}?id=1 AND 1=1"
+      - "{{BaseURL}}?page=1'"
+      - "{{BaseURL}}?cat=1'"
+      - "{{BaseURL}}?p=1'"
+      - "{{BaseURL}}?pid=1'"
+      - "{{BaseURL}}?article=1'"
+      - "{{BaseURL}}?view=1'"
+      - "{{BaseURL}}?num=1'"
+      - "{{BaseURL}}?ref=1'"
+      - "{{BaseURL}}?news=1'"
+      - "{{BaseURL}}?item=1'"
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          # MySQL
+          - "you have an error in your sql syntax"
+          - "warning: mysql_"
+          - "mysql_fetch_array\\(\\)"
+          - "mysql_num_rows\\(\\)"
+          - "mysql_query\\(\\)"
+          # MSSQL
+          - "Microsoft OLE DB Provider for SQL Server"
+          - "Unclosed quotation mark after the character string"
+          - "Incorrect syntax near"
+          - "System\\.Data\\.SqlClient\\.SqlException"
+          # Oracle
+          - "ORA-\\d{5}"
+          - "quoted string not properly terminated"
+          - "OracleException"
+          # PostgreSQL
+          - "Warning.*\\bpg_"
+          - "valid PostgreSQL result"
+          - "Npgsql\\."
+          - "PSQLException"
+          # SQLite
+          - "Warning.*sqlite_"
+          - "\\[SQLITE_ERROR\\]"
+          - "SQLiteException"
+          # DB2
+          - "DB2 SQL error"
+          - "SQLCODE"
+          # Generic
+          - "supplied argument is not a valid.*resource"
+          - "syntax error.*unexpected"
+          - "database.*error"
+          - "sql.*syntax"
+        condition: or
+        case-insensitive: true

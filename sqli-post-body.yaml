@@ -1,0 +1,74 @@
+id: sqli-post-body
+
+info:
+  name: SQL Injection via POST Body Parameters
+  author: security-researcher
+  severity: high
+  description: |
+    POST 요청 본문(body) 파라미터를 통한 SQL 인젝션 취약점을 탐지합니다.
+    검색, 필터링, 데이터 전송 폼 등에서 발생할 수 있습니다.
+  tags: sqli,post,injection,form
+
+http:
+  - method: POST
+    path:
+      - "{{BaseURL}}/search"
+      - "{{BaseURL}}/api/search"
+      - "{{BaseURL}}/products/search"
+
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+
+    payloads:
+      param:
+        - "q"
+        - "search"
+        - "keyword"
+        - "query"
+        - "term"
+      payload:
+        - "'"
+        - "'--"
+        - "' OR 1=1--"
+        - "' AND '1'='1"
+        - "1'"
+
+    body: "{{param}}={{payload}}"
+    attack: clusterbomb
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "you have an error in your sql syntax"
+          - "warning: mysql"
+          - "unclosed quotation mark"
+          - "quoted string not properly terminated"
+          - "ORA-\\d{5}"
+          - "PostgreSQL.*ERROR"
+          - "Microsoft OLE DB Provider"
+          - "SQLite.*error"
+        condition: or
+        case-insensitive: true
+
+  - method: POST
+    path:
+      - "{{BaseURL}}/api/data"
+      - "{{BaseURL}}/api/filter"
+
+    headers:
+      Content-Type: application/json
+
+    body: '{"id": "1'"'"'"}'
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "sql.*error|error.*sql"
+          - "syntax.*error|error.*syntax"
+          - "database.*error|error.*database"
+        condition: or
+        case-insensitive: true

